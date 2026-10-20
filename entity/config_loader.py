@@ -1,7 +1,7 @@
 """Helpers for loading validated configuration objects."""
 
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, MutableMapping
 
 import yaml
 
@@ -10,11 +10,31 @@ from utils.env_loader import load_dotenv_file, build_env_var_map
 from utils.vars_resolver import resolve_design_placeholders
 
 
+def apply_model_override(data: Any, model_name: str | None) -> None:
+    """Override OpenAI agent models without rewriting workflow templates."""
+    if not model_name:
+        return
+    if isinstance(data, list):
+        for item in data:
+            apply_model_override(item, model_name)
+        return
+    if not isinstance(data, MutableMapping):
+        return
+
+    config = data.get("config")
+    if data.get("type") == "agent" and isinstance(config, MutableMapping):
+        if config.get("provider") == "openai":
+            config["name"] = model_name
+    for value in data.values():
+        apply_model_override(value, model_name)
+
+
 def prepare_design_mapping(data: Mapping[str, Any], *, source: str | None = None) -> Mapping[str, Any]:
     load_dotenv_file()
     env_lookup = build_env_var_map()
     prepared = dict(data)
     resolve_design_placeholders(prepared, env_lookup=env_lookup, path=source or "root")
+    apply_model_override(prepared, env_lookup.get("MODEL_NAME"))
     return prepared
 
 

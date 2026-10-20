@@ -3,6 +3,7 @@
 from typing import Dict, List, Set, Any
 import copy
 
+from entity.config_loader import apply_model_override
 from entity.configs import ConfigError, SubgraphConfig
 from entity.configs.edge.edge_condition import EdgeConditionConfig
 from entity.configs.base import extend_path
@@ -90,12 +91,14 @@ class GraphManager:
         combined_vars = dict(self.graph.config.vars)
         combined_vars.update(subgraph_vars)
 
+        env_lookup = build_env_var_map()
         resolve_mapping_with_vars(
             config_payload,
-            env_lookup=build_env_var_map(),
+            env_lookup=env_lookup,
             vars_map=combined_vars,
             path=f"subgraph[{node_id}]",
         )
+        apply_model_override(config_payload, env_lookup.get("MODEL_NAME"))
 
         if config_payload.get("log_level", None) is None:
             config_payload["log_level"] = self.graph.log_level.value
